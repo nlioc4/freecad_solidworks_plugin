@@ -1021,10 +1021,19 @@ class Builder:
         g2 = self._support_surface(s2, face)
         spts, closed = self._spine_points(spine, face)
         rows = []
-        for c in spts:
+        for i, c in enumerate(spts):
             cv = _v(c)
             q1 = self._foot(g1, cv)
             q2 = self._foot(g2, cv)
+            # The ball touches each support at its radius and never cuts into
+            # one. A foot nearer than that means a support is badly
+            # approximated (a blend on an approximated blend): the ball surface
+            # would be wrong, sometimes by metres. Feet farther away are normal
+            # where the spine runs past the edge of a support patch, and at the
+            # two points _spine_points adds past the ends.
+            if (closed or 0 < i < len(spts) - 1) and \
+                    min(G.dist(q1, c), G.dist(q2, c)) < 0.9 * radius:
+                raise BuildError("blend support does not fit the ball")
             d1 = G.unit(G.sub(q1, c))
             d2 = G.unit(G.sub(q2, c))
             ang = math.acos(max(-1.0, min(1.0, G.dot(d1, d2))))
