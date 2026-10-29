@@ -96,20 +96,22 @@ def _import(filename, doc):
 CACHE_OPTIONS = {"sew_tolerance": 0.01, "keep_duplicates": False}
 
 
-def _convert(path):
+def _convert(path, config=None):
     """[(label, shape, appearance)] for a part file, from the disk cache when
-    this exact file was converted before."""
-    hit = _cache.load(path, CACHE_OPTIONS)
+    this exact file was converted before. `config` is the swID of the
+    configuration to use (None: the part's most recent one)."""
+    options = dict(CACHE_OPTIONS, config=config)
+    hit = _cache.load(path, options)
     if hit is not None:
         bodies, warnings, st = hit
     else:
-        results, log = convert(path, verbose=False, **CACHE_OPTIONS)
+        results, log = convert(path, verbose=False, **options)
         apps = list(getattr(log, "appearances", []))
         apps += [None] * (len(results) - len(apps))
         bodies = [(label, shape, kind, app)
                   for (label, shape, kind), app in zip(results, apps)]
         warnings, st = log.warnings, getattr(log, "stats", {})
-        _cache.store(path, CACHE_OPTIONS, bodies, warnings, st)
+        _cache.store(path, options, bodies, warnings, st)
     for w in warnings:
         _warn(w)
     if st.get("failed_faces"):
@@ -151,13 +153,14 @@ def _import_assembly(filename, doc):
         if not path:
             missing += 1
             continue
-        if path not in cache:
+        key = (path, comp.config_id)      # the configuration this component uses
+        if key not in cache:
             try:
-                cache[path] = _convert(path)
+                cache[key] = _convert(path, comp.config_id)
             except Exception as exc:
-                cache[path] = None
+                cache[key] = None
                 _warn("component %s: %s" % (comp.name, exc))
-        bodies = cache[path]
+        bodies = cache[key]
         if not bodies:
             continue
         holder = doc.addObject("App::Part", _doc_name(comp.name))

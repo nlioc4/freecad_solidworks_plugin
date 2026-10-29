@@ -84,7 +84,10 @@ always converted afresh. It lives in FreeCAD's cache folder, under `sw2fc`
 * SolidWorks files saved before 2011 use an older format that is not supported.
   Open and re-save them in a newer SolidWorks.
 * Only the geometry is imported, not the feature history, sketches or
-  dimensions. Only each part's default configuration is used.
+  dimensions. Assembly components use the configuration the assembly names; a
+  part opened on its own uses the configuration it was last saved in. A
+  configuration whose geometry SolidWorks never saved in the file (one never
+  rebuilt) cannot be shown; another saved configuration is used instead.
 * Some complex surfaces may not rebuild exactly. Any faces that could not be
   rebuilt are reported in the Report view.
 

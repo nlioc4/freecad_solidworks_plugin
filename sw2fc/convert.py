@@ -21,13 +21,14 @@ from .build import Log, build_all
 from .loader import ConversionError, load_transmit, load_transmits  # noqa: F401  (re-exported)
 
 
-def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False):
+def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False, config=None):
     """Return (list of (label, shape, kind), log).
 
+    `config` is the swID of the configuration to convert (see load_transmits).
     Bodies that exactly duplicate another body (same place, same shape) are
     dropped unless `keep_duplicates`: both would be drawn on top of each other
     and flicker between their colours."""
-    transmits, kind, skipped = load_transmits(path)
+    transmits, kind, skipped = load_transmits(path, config)
     log = Log(verbose)
     for s in skipped:
         log.warn("body section skipped, could not decode it: %s" % s)

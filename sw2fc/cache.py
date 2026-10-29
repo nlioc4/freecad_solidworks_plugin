@@ -6,9 +6,9 @@
 
 """Disk cache of converted parts, so a file is only rebuilt once.
 
-Entries are keyed by the file's contents and a fingerprint of the converter's
-own source, so editing a part or updating the plugin never returns stale
-shapes. Runs inside FreeCAD's Python.
+Entries are keyed by the file's contents, the conversion options (including
+the configuration) and a fingerprint of the converter's own source, so editing
+a part or updating the plugin never returns stale shapes. Runs inside FreeCAD's Python.
 """
 
 import glob

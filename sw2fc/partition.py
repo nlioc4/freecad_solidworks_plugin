@@ -87,11 +87,24 @@ def is_main_partition(stream_name):
     return re.match(r"Config-\d+-Partition$", stream_name.rsplit("/", 1)[-1]) is not None
 
 
-def candidates(streams):
+def config_number(stream_name):
+    """n of a Contents/Config-<n>-... stream (the configuration's swID), else None."""
+    m = re.search(r"(?:^|/)Config-(\d+)-", stream_name)
+    return int(m.group(1)) if m else None
+
+
+def candidates(streams, config=None):
     """Every Parasolid section found, best candidates first.
+
+    With `config` (a configuration's swID) and a Config-<config>-Partition
+    present, that configuration's streams come first; otherwise the order is
+    the same as without it.
 
     Returns a list of (stream_name, index, kind, payload).
     """
+    if config is not None and not any(is_main_partition(n) and config_number(n) == config
+                                      for n in streams):
+        config = None
     found = []
     for name, data in streams.items():
         if GUID not in data:
@@ -105,9 +118,9 @@ def candidates(streams):
         name, i, k, _ = item
         base = name.rsplit("/", 1)[-1]
         if is_main_partition(name):
-            # the finished part, for whichever configuration was saved (Config-0
-            # sorts first when there are several); LocalBodies hold bodies as
-            # imported, before any later features changed them
+            # the finished part, for whichever configuration was saved (without
+            # `config`, Config-0 sorts first when there are several); LocalBodies
+            # hold bodies as imported, before any later features changed them
             r = 0
         elif "LocalBodies" in name:
             r = 1
@@ -117,7 +130,8 @@ def candidates(streams):
             r = 9
         else:
             r = 4
-        return (r, name, i)
+        other = config is not None and config_number(name) != config
+        return (other, r, name, i)
 
     found.sort(key=rank)
     return found

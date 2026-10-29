@@ -7,6 +7,7 @@
 """Read the Parasolid geometry out of a SolidWorks part. Pure Python (no FreeCAD)."""
 
 import os
+import re
 
 from . import container, partition, xt
 
@@ -21,7 +22,20 @@ def _short(exc, limit=80):
     return text if len(text) <= limit else text[:limit] + "..."
 
 
-def load_transmits(path):
+def most_recent_config(streams):
+    """swID of the configuration the part was last shown in, from
+    swXmlContents/Features, or None. The swID is the <n> of Config-<n>-Partition."""
+    xml = container.find_stream(streams, "swXmlContents/Features")
+    if not xml:
+        return None
+    for tag in re.findall(rb"<swConfiguration\b[^>]*>", xml):
+        m = re.search(rb'\bswID="(\d+)"', tag)
+        if m and b'swMostRecentConfiguration="YES"' in tag:
+            return int(m.group(1))
+    return None
+
+
+def load_transmits(path, config=None):
     """Decode the Parasolid geometry of a SolidWorks part (or a raw .x_t/.x_b file).
 
     Returns (transmits, kind, skipped): usually a single transmit, the main
@@ -29,7 +43,11 @@ def load_transmits(path):
     the main Config-<n>-Partition empty and keep each body in its own section of a
     FeatureBodies/LocalBodies stream; then every section of that stream that
     holds faces is returned. `skipped` lists the sections that could not be
-    decoded."""
+    decoded.
+
+    `config` is the swID of the configuration to load (an assembly component
+    names one); without it, the part's most recent configuration. When that
+    configuration has no stored geometry, another one is used."""
     data = open(path, "rb").read()
     ext = os.path.splitext(path)[1].lower()
     if ext in (".x_t", ".xmt_txt"):
@@ -40,7 +58,9 @@ def load_transmits(path):
         kind, streams = container.read_streams(data)
     except Exception as exc:
         raise ConversionError("not a readable SolidWorks file: %s" % exc)
-    cands = partition.candidates(streams)
+    if config is None:
+        config = most_recent_config(streams)
+    cands = partition.candidates(streams, config)
     if not cands:
         if any(k.endswith("__Zip") for k in streams):
             raise ConversionError(
