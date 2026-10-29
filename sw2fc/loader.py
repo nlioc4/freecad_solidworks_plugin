@@ -26,7 +26,7 @@ def load_transmits(path):
 
     Returns (transmits, kind, skipped): usually a single transmit, the main
     partition. Parts built from imported geometry (e.g. a STEP import) can leave
-    Config-0-Partition empty and keep each body in its own section of a
+    the main Config-<n>-Partition empty and keep each body in its own section of a
     FeatureBodies/LocalBodies stream; then every section of that stream that
     holds faces is returned. `skipped` lists the sections that could not be
     decoded."""
@@ -55,10 +55,11 @@ def load_transmits(path):
         try:
             t = xt.parse(payload, binary=True)
         except xt.XTError as exc:
-            if name.rsplit("/", 1)[-1] == "Config-0-Partition":
+            if partition.is_main_partition(name):
                 # never fall back to ghost / feature bodies when the main
                 # geometry is unreadable: that silently drops most of the part
-                raise ConversionError("could not decode the part geometry (%s)" % _short(exc))
+                raise ConversionError("could not decode the part geometry in %s (%s)"
+                                      % (name.rsplit("/", 1)[-1], _short(exc)))
             errors.append("%s #%d: %s" % (name, idx, _short(exc)))
             continue
         if not t.of_type(14):

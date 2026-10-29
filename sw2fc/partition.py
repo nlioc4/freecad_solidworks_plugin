@@ -16,6 +16,7 @@ Partition-bearing streams are a chain of sections:
     8 zero bytes
 """
 
+import re
 import struct
 import zlib
 
@@ -81,6 +82,11 @@ def kind_of(section):
     return "unknown"
 
 
+def is_main_partition(stream_name):
+    """True for Contents/Config-<n>-Partition, the main geometry of a configuration."""
+    return re.match(r"Config-\d+-Partition$", stream_name.rsplit("/", 1)[-1]) is not None
+
+
 def candidates(streams):
     """Every Parasolid section found, best candidates first.
 
@@ -98,12 +104,13 @@ def candidates(streams):
     def rank(item):
         name, i, k, _ = item
         base = name.rsplit("/", 1)[-1]
-        if base == "Config-0-Partition":
+        if is_main_partition(name):
+            # the finished part, for whichever configuration was saved (Config-0
+            # sorts first when there are several); LocalBodies hold bodies as
+            # imported, before any later features changed them
             r = 0
         elif "LocalBodies" in name:
             r = 1
-        elif base.startswith("Config-") and base.endswith("-Partition"):
-            r = 2
         elif "GhostPartition" in base:
             r = 5
         elif "ResolvedFeatures" in base:
