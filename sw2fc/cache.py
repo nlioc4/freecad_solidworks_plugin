@@ -21,6 +21,8 @@ import tempfile
 import FreeCAD
 import Part
 
+from .paths import long_path
+
 MAX_ENTRIES = 300
 
 _code_hash = None
@@ -48,7 +50,7 @@ def cache_dir():
 
 def _key(path, options):
     h = hashlib.sha1()
-    with open(path, "rb") as fh:
+    with open(long_path(path), "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     h.update(_code_fingerprint().encode())

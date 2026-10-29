@@ -22,6 +22,7 @@ if _here not in sys.path:
 from sw2fc import assembly as _asm          # noqa: E402
 from sw2fc import cache as _cache           # noqa: E402
 from sw2fc.convert import ConversionError, convert, _doc_name   # noqa: E402
+from sw2fc.paths import long_path, short_path                   # noqa: E402
 
 PART_EXTS = (".sldprt", ".x_t", ".x_b", ".xmt_txt", ".xmt_bin")
 ASM_EXTS = (".sldasm",)
@@ -223,12 +224,12 @@ def solidworks_files(folder, recursive=False):
     """SolidWorks parts and assemblies in `folder`, sorted, without the
     ~$ lock files SolidWorks leaves while a file is open."""
     out = []
-    for dirpath, dirnames, names in os.walk(folder):
+    for dirpath, dirnames, names in os.walk(long_path(folder)):
         dirnames.sort()
         for n in sorted(names):
             if n.startswith("~$") or os.path.splitext(n)[1].lower() not in FOLDER_EXTS:
                 continue
-            out.append(os.path.join(dirpath, n))
+            out.append(short_path(os.path.join(dirpath, n)))
         if not recursive:
             break
     return out

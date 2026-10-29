@@ -10,6 +10,7 @@ import os
 import re
 
 from . import container, partition, xt
+from .paths import long_path
 
 
 class ConversionError(RuntimeError):
@@ -48,7 +49,8 @@ def load_transmits(path, config=None):
     `config` is the swID of the configuration to load (an assembly component
     names one); without it, the part's most recent configuration. When that
     configuration has no stored geometry, another one is used."""
-    data = open(path, "rb").read()
+    with open(long_path(path), "rb") as fh:
+        data = fh.read()
     ext = os.path.splitext(path)[1].lower()
     if ext in (".x_t", ".xmt_txt"):
         return [xt.parse(data, binary=False)], "x_t", []

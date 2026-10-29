@@ -25,6 +25,7 @@ import re
 import xml.etree.ElementTree as ET
 
 from . import container
+from .paths import long_path, short_path
 
 
 class AssemblyError(ValueError):
@@ -79,7 +80,8 @@ def parse_transform(text):
 
 def read_tree(path):
     """Parse an assembly file into its root Component."""
-    data = open(path, "rb").read()
+    with open(long_path(path), "rb") as fh:
+        data = fh.read()
     kind, streams = container.read_streams(data)
     xml = container.find_stream(streams, "swXmlContents/COMPINSTANCETREE")
     if xml is None:
@@ -174,7 +176,7 @@ def resolve_file(stored_path, asm_path, search_dirs=()):
     in those folders, then anywhere below them. A same-named file next to the
     assembly must not win over the one the stored path points at.
     """
-    if stored_path and os.path.exists(stored_path):
+    if stored_path and os.path.exists(long_path(stored_path)):
         return stored_path
     base = _basename(stored_path)
     asm_dir = os.path.dirname(os.path.abspath(asm_path))
@@ -184,20 +186,20 @@ def resolve_file(stored_path, asm_path, search_dirs=()):
     for k in range(len(parts) - 1, 0, -1):
         for d in dirs:
             cand = os.path.join(d, *parts[-k - 1:])
-            if os.path.exists(cand):
+            if os.path.exists(long_path(cand)):
                 return cand
     for d in dirs:
         # same name, case-insensitively
         try:
-            names = os.listdir(d)
+            names = os.listdir(long_path(d))
         except OSError:
             continue
         for n in names:
             if n.lower() == base.lower():
                 return os.path.join(d, n)
     for d in dirs:
-        for dp, _, fns in os.walk(d):
+        for dp, _, fns in os.walk(long_path(d)):
             for n in fns:
                 if n.lower() == base.lower():
-                    return os.path.join(dp, n)
+                    return short_path(os.path.join(dp, n))
     return None
