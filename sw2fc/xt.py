@@ -118,8 +118,8 @@ BASE = {
                "curve_form:u bspline_vertices:p knot_mult:p knots:p"),
     137: _spec(_GEOM + " surface:p b_curve:p original:p tolerance_to_original:f"),
     141: _spec("owner:p next:p previous:p shared_geometry:p"),
-    163: _spec("axis_pt:v axis_dir:v point:v hand:c turns:i pitch:f tol:f"),
-    184: _spec("axis_pt:v axis_dir:v hand:c turns:i pitch:f gap:f tol:f"),
+    163: _spec("axis_pt:v axis_dir:v hand:c turns:i pitch:f gap:f tol:f"),
+    184: _spec("axis_pt:v axis_dir:v point:v hand:c turns:i pitch:f tol:f"),
 }
 
 NAMES = {
@@ -135,7 +135,7 @@ NAMES = {
     120: "PE_SURF", 121: "INT_PE_DATA", 122: "EXT_PE_DATA", 124: "B_SURFACE", 125: "SURFACE_DATA",
     126: "NURBS_SURF", 127: "KNOT_MULT", 128: "KNOT_SET", 130: "PE_CURVE", 133: "TRIMMED_CURVE",
     134: "B_CURVE", 135: "CURVE_DATA", 136: "NURBS_CURVE", 137: "SP_CURVE", 141: "GEOMETRIC_OWNER",
-    163: "HELIX_CU_FORM", 184: "HELIX_SU_FORM",
+    163: "HELIX_SU_FORM", 184: "HELIX_CU_FORM",
 }
 
 _KINDS = set("ucl nwdpfivbht".replace(" ", ""))
