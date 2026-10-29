@@ -21,26 +21,45 @@ from .build import Log, build_all
 from .loader import ConversionError, load_transmit, load_transmits  # noqa: F401  (re-exported)
 
 
-def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False, config=None):
+# below this many faces, starting worker processes costs more than it saves
+PARALLEL_MIN_FACES = 200
+
+
+def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False, config=None,
+            jobs=1):
     """Return (list of (label, shape, kind), log).
 
     `config` is the swID of the configuration to convert (see load_transmits).
     Bodies that exactly duplicate another body (same place, same shape) are
     dropped unless `keep_duplicates`: both would be drawn on top of each other
-    and flicker between their colours."""
+    and flicker between their colours. `jobs` > 1 rebuilds the bodies in that
+    many processes (0: one per core but one); the result is the same."""
     transmits, kind, skipped = load_transmits(path, config)
     log = Log(verbose)
     for s in skipped:
         log.warn("body section skipped, could not decode it: %s" % s)
-    items = []
+    items = None
     stats = {}
-    for t in transmits:
-        bodies, builder = build_all(t, log=log, sew_tolerance=sew_tolerance)
-        apps = list(builder.appearances)
-        apps += [None] * (len(bodies) - len(apps))
-        items += [(shape, k, app) for (shape, k, _), app in zip(bodies, apps)]
-        for key, n in builder.stats.items():
-            stats[key] = stats.get(key, 0) + n
+    if jobs != 1 and sum(len(t.of_type(14)) for t in transmits) >= PARALLEL_MIN_FACES:
+        from . import parallel
+        try:
+            done = parallel.build(transmits, sew_tolerance, jobs or None)
+        except Exception as exc:
+            log.warn("parallel build failed, building in one process: %s" % exc)
+            done = None
+        if done is not None:
+            items, warnings, stats = done
+            for w in warnings:
+                log.warn(w)
+    if items is None:
+        items = []
+        for t in transmits:
+            bodies, builder = build_all(t, log=log, sew_tolerance=sew_tolerance)
+            apps = list(builder.appearances)
+            apps += [None] * (len(bodies) - len(apps))
+            items += [(shape, k, app) for (shape, k, _), app in zip(bodies, apps)]
+            for key, n in builder.stats.items():
+                stats[key] = stats.get(key, 0) + n
     if not items:
         raise ConversionError("no bodies could be rebuilt: " + "; ".join(log.warnings[:5]))
     if not keep_duplicates:
@@ -119,10 +138,11 @@ def _drop_duplicate_bodies(items, log):
     return keep
 
 
-def to_document(path, doc=None, verbose=False, sew_tolerance=0.01, keep_duplicates=False):
+def to_document(path, doc=None, verbose=False, sew_tolerance=0.01, keep_duplicates=False,
+                jobs=1):
     """Convert into a FreeCAD document (a new one unless `doc` is given)."""
     results, log = convert(path, verbose=verbose, sew_tolerance=sew_tolerance,
-                           keep_duplicates=keep_duplicates)
+                           keep_duplicates=keep_duplicates, jobs=jobs)
     base = os.path.splitext(os.path.basename(path))[0]
     if doc is None:
         doc = FreeCAD.newDocument(_doc_name(base))
@@ -138,13 +158,13 @@ def to_document(path, doc=None, verbose=False, sew_tolerance=0.01, keep_duplicat
 
 
 def write_outputs(path, out_path, verbose=False, sew_tolerance=0.01, colours=True,
-                  keep_duplicates=False):
+                  keep_duplicates=False, jobs=1):
     """Convert `path` and write `out_path` (.FCStd, .step/.stp, .brep, .stl).
     `colours=False` leaves SolidWorks colours out of an .FCStd."""
     ext = os.path.splitext(out_path)[1].lower()
     if ext == ".fcstd":
         doc, results, log = to_document(path, verbose=verbose, sew_tolerance=sew_tolerance,
-                                        keep_duplicates=keep_duplicates)
+                                        keep_duplicates=keep_duplicates, jobs=jobs)
         names = [o.Name for o in doc.Objects]
         doc.saveAs(out_path)
         FreeCAD.closeDocument(doc.Name)
@@ -152,7 +172,7 @@ def write_outputs(path, out_path, verbose=False, sew_tolerance=0.01, colours=Tru
                                     for n in names])
         return results, log
     results, log = convert(path, verbose=verbose, sew_tolerance=sew_tolerance,
-                           keep_duplicates=keep_duplicates)
+                           keep_duplicates=keep_duplicates, jobs=jobs)
     shapes = [s for _, s, _ in results]
     shape = shapes[0] if len(shapes) == 1 else Part.Compound(shapes)
     if ext in (".step", ".stp"):

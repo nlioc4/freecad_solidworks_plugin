@@ -77,6 +77,8 @@ class Builder:
         self._edge = {}
         self._curve = {}
         self._edge_override = {}
+        self._unrefined = set()      # intersection curves whose refinement failed
+        self._refined = []           # intersection curves in the order they were done
         self.appearances = []
         self.last_appearance = None
         self.stats = {"faces": 0, "failed_faces": 0, "approx_faces": 0}
@@ -399,6 +401,8 @@ class Builder:
                     self.log.warn("intersection %d: refinement failed (%s); using chart" % (
                         c["node_id"], exc))
                     self._curve[key] = dedup
+                    self._unrefined.add(c.index)
+                self._refined.append(c.index)
             return self._curve[key], closed
         if ty == 137:
             nb, nc = G.nurbs_curve(self.t, self.node(c["b_curve"]))
@@ -414,6 +418,41 @@ class Builder:
                 pts = pts[:-1]
             return pts, closed
         raise BuildError("cannot sample %s" % c.name)
+
+    # Refining intersection curves is most of the work on big bodies, and each
+    # curve stands alone, so parallel.py has other processes refine them and
+    # seeds this cache with the points; the faces and edges are still built
+    # here, so they share edges exactly as without it.
+    def intersection_curves(self, faces):
+        """Indices of the intersection curves the edges of `faces` sample."""
+        out, seen = [], set()
+        for f in faces:
+            for eid in self._face_edge_ids(f):
+                c, _ = self.edge_curve_node(self.node(eid))
+                if c is not None and c.type == 133:
+                    c = self.node(c["basis_curve"])
+                if c is not None and c.type == 38 and c.index not in seen:
+                    seen.add(c.index)
+                    out.append(c.index)
+        return out
+
+    def intersections(self, curves):
+        """{curve index: refined points} for the intersection curves that
+        refine cleanly. A curve whose refinement warned (itself, or a blend
+        spine it needed) is left out, so the builder that uses the points
+        redoes it and warns only if it needs it, as without seeding."""
+        dirty = set()
+        for i in curves:
+            n, m = len(self.log.warnings), len(self._refined)
+            self.sample_curve(self.node(i))
+            if len(self.log.warnings) != n:
+                dirty.update(self._refined[m:])    # with any spines refined on the way
+        return {i: self._curve[("ix", i)] for i in curves
+                if i not in dirty and i not in self._unrefined}
+
+    def seed_intersections(self, points):
+        for i, pts in points.items():
+            self._curve.setdefault(("ix", i), pts)
 
     def _refine_intersection(self, c, pts, closed, per_segment=8):
         """Densify an intersection chart and snap every point onto both surfaces.

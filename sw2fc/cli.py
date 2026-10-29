@@ -44,6 +44,9 @@ def parse_args(argv):
                    help="do not copy SolidWorks colours into the .FCStd")
     p.add_argument("--keep-duplicates", action="store_true",
                    help="keep bodies that exactly duplicate another body (dropped by default)")
+    p.add_argument("-j", "--jobs", type=int, default=1,
+                   help="rebuild big parts in this many processes (0: one per core but one; "
+                        "default 1); the result is the same")
     p.add_argument("--check", action="store_true",
                    help="only check that the inputs can be converted (fast, no FreeCAD); prints JSON")
     p.add_argument("--freecad", default=None,
@@ -91,7 +94,7 @@ def run_inside_freecad(argv):
         try:
             results, log = write_outputs(inp, out, verbose=args.verbose,
                                          sew_tolerance=args.tolerance, colours=args.colours,
-                                         keep_duplicates=args.keep_duplicates)
+                                         keep_duplicates=args.keep_duplicates, jobs=args.jobs)
         except Exception as exc:
             failures += 1
             print("FAILED  %s: %s" % (inp, exc))

@@ -79,6 +79,13 @@ times faster. The cache is keyed by the file's contents, so a changed file is
 always converted afresh. It lives in FreeCAD's cache folder, under `sw2fc`
 (on Linux `~/.cache/FreeCAD/Cache/sw2fc`), and is safe to delete.
 
+Big parts (hundreds or thousands of faces) can be rebuilt in several processes
+at once, with the same result: pass `-j N` on the command line (`-j 0` uses one
+process per core but one), or set the integer `Jobs` under
+`BaseApp/Preferences/Mod/SolidWorksImport` in **Tools → Edit parameters…** for
+imports in FreeCAD. The default is 1. Each body is rebuilt by one process, so a
+part made of one huge body gains least.
+
 ## Limitations
 
 * SolidWorks files saved before 2011 use an older format that is not supported.

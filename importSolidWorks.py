@@ -96,6 +96,22 @@ def _import(filename, doc):
 
 CACHE_OPTIONS = {"sew_tolerance": 0.01, "keep_duplicates": False}
 
+# Processes to rebuild a big part in (0: one per core but one). None reads
+# the "Jobs" setting, default 1, under
+# Tools > Edit parameters > BaseApp/Preferences/Mod/SolidWorksImport.
+# Not part of CACHE_OPTIONS: the result is the same whatever it is.
+JOBS = None
+
+
+def _jobs():
+    if JOBS is not None:
+        return JOBS
+    try:
+        return FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/SolidWorksImport") \
+            .GetInt("Jobs", 1)
+    except Exception:
+        return 1
+
 
 def _convert(path, config=None):
     """[(label, shape, appearance)] for a part file, from the disk cache when
@@ -106,7 +122,7 @@ def _convert(path, config=None):
     if hit is not None:
         bodies, warnings, st = hit
     else:
-        results, log = convert(path, verbose=False, **options)
+        results, log = convert(path, verbose=False, jobs=_jobs(), **options)
         apps = list(getattr(log, "appearances", []))
         apps += [None] * (len(results) - len(apps))
         bodies = [(label, shape, kind, app)

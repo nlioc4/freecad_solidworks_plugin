@@ -356,11 +356,14 @@ def _header(r):
 
 
 class Transmit:
-    """A decoded transmit file: header plus nodes keyed by index."""
+    """A decoded transmit file: header plus nodes keyed by index, and the
+    bytes it was decoded from (so it can be handed to another process)."""
 
-    def __init__(self, header, nodes):
+    def __init__(self, header, nodes, data=None, binary=True):
         self.header = header
         self.nodes = nodes
+        self.data = data
+        self.binary = binary
 
     def __getitem__(self, idx):
         return self.nodes.get(idx) if idx else None
@@ -419,7 +422,7 @@ def parse(data, binary=None):
             else:
                 vals[name] = r.value(kind)
         nodes[index] = Node(ntype, index, vals)
-    return Transmit(header, nodes)
+    return Transmit(header, nodes, data, binary)
 
 
 def _read_schema(r, ntype, embedded):
