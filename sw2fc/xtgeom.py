@@ -183,8 +183,9 @@ def nurbs_curve(t, bnode):
     """Nurbs object for a B_CURVE node (2-D or 3-D)."""
     nc = t[bnode["nurbs"]]
     verts = t[nc["bspline_vertices"]]["vertices"]
-    mult = t[nc["knot_mult"]]["mult"]
-    knots = t[nc["knots"]]["knots"]
+    n = nc["n_knots"]
+    mult = t[nc["knot_mult"]]["mult"][:n]
+    knots = t[nc["knots"]]["knots"][:n]
     vdim = int(nc["vertex_dim"])
     rational = bool(nc["rational"])
     dim = vdim - 1 if rational else vdim
@@ -194,9 +195,10 @@ def nurbs_curve(t, bnode):
 def nurbs_surface(t, snode):
     ns = t[snode["nurbs"]]
     verts = t[ns["bspline_vertices"]]["vertices"]
+    nu, nv = ns["n_u_knots"], ns["n_v_knots"]
     return NurbsSurface(ns, verts,
-                        t[ns["u_knot_mult"]]["mult"], t[ns["v_knot_mult"]]["mult"],
-                        t[ns["u_knots"]]["knots"], t[ns["v_knots"]]["knots"]), ns
+                        t[ns["u_knot_mult"]]["mult"][:nu], t[ns["v_knot_mult"]]["mult"][:nv],
+                        t[ns["u_knots"]]["knots"][:nu], t[ns["v_knots"]]["knots"][:nv]), ns
 
 
 # ---------------------------------------------------------------- evaluators
