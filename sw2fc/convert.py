@@ -18,7 +18,7 @@ import Part
 from .build import Log, build_all
 
 
-from .loader import ConversionError, load_transmit  # noqa: F401  (re-exported)
+from .loader import ConversionError, load_transmit, load_transmits  # noqa: F401  (re-exported)
 
 
 def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False):
@@ -27,14 +27,21 @@ def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False):
     Bodies that exactly duplicate another body (same place, same shape) are
     dropped unless `keep_duplicates`: both would be drawn on top of each other
     and flicker between their colours."""
-    t, kind = load_transmit(path)
+    transmits, kind, skipped = load_transmits(path)
     log = Log(verbose)
-    bodies, builder = build_all(t, log=log, sew_tolerance=sew_tolerance)
-    if not bodies:
+    for s in skipped:
+        log.warn("body section skipped, could not decode it: %s" % s)
+    items = []
+    stats = {}
+    for t in transmits:
+        bodies, builder = build_all(t, log=log, sew_tolerance=sew_tolerance)
+        apps = list(builder.appearances)
+        apps += [None] * (len(bodies) - len(apps))
+        items += [(shape, k, app) for (shape, k, _), app in zip(bodies, apps)]
+        for key, n in builder.stats.items():
+            stats[key] = stats.get(key, 0) + n
+    if not items:
         raise ConversionError("no bodies could be rebuilt: " + "; ".join(log.warnings[:5]))
-    apps = list(builder.appearances)
-    apps += [None] * (len(bodies) - len(apps))
-    items = [(shape, k, app) for (shape, k, _), app in zip(bodies, apps)]
     if not keep_duplicates:
         items = _drop_duplicate_bodies(items, log)
     base = os.path.splitext(os.path.basename(path))[0]
@@ -42,7 +49,7 @@ def convert(path, verbose=False, sew_tolerance=0.01, keep_duplicates=False):
     for i, (shape, k, _) in enumerate(items):
         label = base if len(items) == 1 else "%s_Body%d" % (base, i + 1)
         out.append((label, shape, k))
-    log.stats = builder.stats
+    log.stats = stats
     log.appearances = [app for _, _, app in items]   # parallel to `out`
     return out, log
 
