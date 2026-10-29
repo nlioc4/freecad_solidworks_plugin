@@ -68,19 +68,26 @@ def _painted_faces(app):
                if tuple(int(round(x * 255)) for x in c[:3]) != _SW_DEFAULT_RGB)
 
 
-def _same_body(a, b):
-    """True if shapes `a` and `b` occupy the same space."""
-    if len(a.Faces) != len(b.Faces):
+def _measure(s):
+    """What _same_body compares, worked out once per body: face count,
+    bounding box, its diagonal, area and volume."""
+    bb = s.BoundBox
+    return (len(s.Faces), (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax),
+            bb.DiagonalLength, s.Area, abs(s.Volume))
+
+
+def _same_body(a, b, ma=None, mb=None):
+    """True if shapes `a` and `b` occupy the same space. `ma`, `mb`: their
+    _measure(), if already known."""
+    na, boxa, diag, area_a, va = ma or _measure(a)
+    nb, boxb, _, area_b, vb = mb or _measure(b)
+    if na != nb:
         return False
-    ba, bb = a.BoundBox, b.BoundBox
-    tol = max(1e-3, 1e-5 * ba.DiagonalLength)
-    if any(abs(x - y) > tol for x, y in zip(
-            (ba.XMin, ba.YMin, ba.ZMin, ba.XMax, ba.YMax, ba.ZMax),
-            (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax))):
+    tol = max(1e-3, 1e-5 * diag)
+    if any(abs(x - y) > tol for x, y in zip(boxa, boxb)):
         return False
-    if abs(a.Area - b.Area) > 1e-4 * max(a.Area, 1e-9):
+    if abs(area_a - area_b) > 1e-4 * max(area_a, 1e-9):
         return False
-    va, vb = abs(a.Volume), abs(b.Volume)
     if va < 1e-9 or vb < 1e-9:
         return True                       # sheets: matching box, faces and area
     if abs(va - vb) > 1e-4 * va:
@@ -95,14 +102,15 @@ def _drop_duplicate_bodies(items, log):
     """Remove bodies that duplicate an earlier one, keeping whichever copy has
     more painted (non-default colour) faces."""
     keep = list(items)
+    meas = [_measure(it[0]) for it in keep]
     i = 0
     while i < len(keep):
         j = i + 1
         while j < len(keep):
-            if _same_body(keep[i][0], keep[j][0]):
+            if _same_body(keep[i][0], keep[j][0], meas[i], meas[j]):
                 if _painted_faces(keep[j][2]) > _painted_faces(keep[i][2]):
-                    keep[i] = keep[j]
-                del keep[j]
+                    keep[i], meas[i] = keep[j], meas[j]
+                del keep[j], meas[j]
                 log.warn("dropped a duplicate body lying exactly on top of another "
                          "(use --keep-duplicates to keep it)")
             else:
