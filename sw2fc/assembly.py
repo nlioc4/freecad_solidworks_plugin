@@ -168,8 +168,11 @@ def _basename(p):
 def resolve_file(stored_path, asm_path, search_dirs=()):
     """Find a referenced document on this machine.
 
-    SolidWorks stores absolute Windows paths; look next to the assembly first,
-    then along the stored relative structure, then in the search directories.
+    SolidWorks stores absolute Windows paths; look for the stored relative
+    structure (longest trailing part of the stored path first) under the
+    assembly's folder and the search directories, then for the bare file name
+    in those folders, then anywhere below them. A same-named file next to the
+    assembly must not win over the one the stored path points at.
     """
     if stored_path and os.path.exists(stored_path):
         return stored_path
@@ -177,6 +180,12 @@ def resolve_file(stored_path, asm_path, search_dirs=()):
     asm_dir = os.path.dirname(os.path.abspath(asm_path))
     dirs = [asm_dir] + list(search_dirs)
     parts = [p for p in re.split(r"[\\/]", stored_path) if p and not p.endswith(":")]
+    # trailing directories of the stored path
+    for k in range(len(parts) - 1, 0, -1):
+        for d in dirs:
+            cand = os.path.join(d, *parts[-k - 1:])
+            if os.path.exists(cand):
+                return cand
     for d in dirs:
         # same name, case-insensitively
         try:
@@ -186,11 +195,6 @@ def resolve_file(stored_path, asm_path, search_dirs=()):
         for n in names:
             if n.lower() == base.lower():
                 return os.path.join(d, n)
-        # trailing directories of the stored path
-        for k in range(len(parts) - 1, 0, -1):
-            cand = os.path.join(d, *parts[-k - 1:])
-            if os.path.exists(cand):
-                return cand
     for d in dirs:
         for dp, _, fns in os.walk(d):
             for n in fns:
